@@ -14,6 +14,8 @@
 
 void showOff();
 void getCurrentWorkingDirectory(char *path, size_t maxSize);
+void getCommandArguments(char *command, char **commArgv);
+void freeCommandArguments(char **commArgv);
 
 int main()
 {
@@ -31,33 +33,12 @@ int main()
         getCurrentWorkingDirectory(path, PATH_MAX_LENGTH);
         printf("MICRO [%s] $ ", path);
 
-        /* get user command */
         fgets(command, COMMAND_MAX_LENGTH, stdin);
         size_t lastCharIndex = strcspn(command, "\n");
         command[lastCharIndex] = 0;
 
-        /* split line input into array of arguments */
-        char *token;
-        int i = 0;
-
-        token = strtok(command, " ");
-        while (token != NULL)
-        {
-            /* check if argument length is lower than allowed */
-            size_t tokenLen = strlen(token);
-            if (tokenLen > MAX_ARG_LEN) {
-                printf("Error in (future) getArguments(): the given argument is too long");
-                return 1;
-            }
-
-            commArgv[i] = (char *)malloc(strlen(token) + 1);
-            strcpy(commArgv[i], token);
-            token = strtok(NULL, " ");
-            i++;
-        }
-
-        /* point the end of array */
-        commArgv[i] = NULL;
+        /* get user command and split it into arguments */
+        getCommandArguments(command, commArgv);
 
         /* print all arguments */
         for (int j = 0; j < MAX_ARGS; j++)
@@ -71,15 +52,7 @@ int main()
         }
 
         /* free memory allocated for commArgv array */
-        for (int j = 0; j < MAX_ARGS; j++)
-        {
-            if (commArgv[j] == NULL)
-            {
-                break;
-            }
-            free(commArgv[j]);
-            commArgv[j] = NULL;
-        }
+        freeCommandArguments(commArgv);
     }
 
     free(path);
@@ -263,4 +236,37 @@ void showOff()
     printf("\n");
     printf("\n");
     printf("\n");
+}
+
+void getCommandArguments(char *command, char **commArgv) {
+    char *token;
+    int i = 0;
+
+    token = strtok(command, " ");
+    while (token != NULL) {
+        /* check if argument length is lower than allowed */
+        size_t tokenLen = strlen(token);
+        if (tokenLen > MAX_ARG_LEN) {
+            printf("Error: the given argument is too long");
+            return;
+        }
+
+        commArgv[i] = (char *)malloc(strlen(token) + 1);
+        strcpy(commArgv[i], token);
+        token = strtok(NULL, " ");
+        i++;
+    }
+    commArgv[i] = NULL;
+}
+
+void freeCommandArguments(char **commArgv) {
+    for (int j = 0; j < MAX_ARGS; j++)
+    {
+        if (commArgv[j] == NULL)
+        {
+            break;
+        }
+        free(commArgv[j]);
+        commArgv[j] = NULL;
+    }
 }
