@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+/* for command input */
 #define PATH_MAX_LENGTH 1024
 #define COMMAND_MAX_LENGTH 1024
 #define MAX_ARGS 128
@@ -14,15 +15,15 @@
 
 void showOff();
 void getCurrentWorkingDirectory(char *path, size_t maxSize);
-void getCommandArguments(char *command, char **commArgv);
-void freeCommandArguments(char **commArgv);
+void getCommandArguments(char **commArguments, int *argumentsNum);
+void freeCommandArguments(char **commArguments);
 
 int main()
 {
     /* declare variables */
     char *path = malloc(PATH_MAX_LENGTH);
-    char *command = malloc(COMMAND_MAX_LENGTH);
-    char *commArgv[MAX_ARGS];
+    char *commArguments[MAX_ARGS];
+    int argumentsNum = 0;
 
     /* welcome message */
     // showOff();
@@ -33,153 +34,92 @@ int main()
         getCurrentWorkingDirectory(path, PATH_MAX_LENGTH);
         printf("MICRO [%s] $ ", path);
 
-        fgets(command, COMMAND_MAX_LENGTH, stdin);
-        size_t lastCharIndex = strcspn(command, "\n");
-        command[lastCharIndex] = 0;
-
         /* get user command and split it into arguments */
-        getCommandArguments(command, commArgv);
+        getCommandArguments(commArguments, &argumentsNum);
 
         /* print all arguments */
-        for (int j = 0; j < MAX_ARGS; j++)
+        // printf("You have %d arguments\n", argumentsNum);
+
+        // for (int j = 0; j < argumentsNum; j++)
+        // {
+        //     if (commArguments[j] == NULL)
+        //     {
+        //         break;
+        //     }
+
+        //     printf("Argument %d: %s\n", j + 1, commArguments[j]);
+        // }
+
+        /* execute command based on the first argument */
+        if (strcmp(commArguments[0], "cd") == 0)
         {
-            if (commArgv[j] == NULL)
+            /* if '~' or no arguments set first argument to $HOME */
+            if (commArguments[1] == NULL || strcmp(commArguments[1], "~") == 0)
             {
-                break;
+                commArguments[1] = getenv("HOME");
+            }
+            /* if '-' set first argument to $OLDPWD */
+            else if (strcmp(commArguments[1], "-") == 0)
+            {
+                if ((commArguments[1] = getenv("OLDPWD")) == NULL)
+                {
+                    printf("Error in main(): env OLDPWD is not set\n");
+                }
             }
 
-            printf("Argument %d: %s\n", j + 1, commArgv[j]);
-        }
+            /* change directory */
+            if (chdir(commArguments[1]) != 0)
+            {
+                printf("Error in main(): chdir() failure\n");
+            }
 
-        /* free memory allocated for commArgv array */
-        freeCommandArguments(commArgv);
+            /* update $OLDPWD */
+            if (setenv("OLDPWD", path, 1) != 0) {
+                printf("Error in main(): setenv() failure\n");
+            }
+        }
+        else if (strcmp(commArguments[0], "pwd") == 0)
+        {
+            printf("%s\n", path);
+        }
+        else if (strcmp(commArguments[0], "exit") == 0)
+        {
+            exit(0);
+        }
+        else
+        {
+            /* fork to run execvp */
+            pid_t forkId = fork();
+
+            if (forkId == -1)
+            {
+                printf("Error in main(): Fork failed\n");
+            }
+            else if (forkId == 0)
+            {
+                execvp(commArguments[0], commArguments);
+            }
+            else
+            {
+                wait(NULL);
+            }
+        }
     }
 
+    /* free memory allocated */
+    freeCommandArguments(commArguments);
     free(path);
-    free(command);
 
     return 0;
 }
-//     /* execute command based on first argument */
-//     if (strlen(commArgv[0]) == 0)
-//     {
-//         exit(0);
-//     }
-//     else if (strcmp(commArgv[0], "exit") == 0)
-//         exit(0);
-//     else if (strcmp(commArgv[0], "pwd") == 0)
-//     {
-//         printf("%s\n", path);
-//         getchar();
-//     }
-//     else if (strcmp(commArgv[0], "ls") == 0)
-//     {
-//         pid_t pid = fork();
-
-//         if (pid == -1)
-//         {
-//             printf("Error in ls: fork() returned -1\n");
-//         }
-//         else if (pid == 0)
-//         {
-//             execl("/bin/ls", commArgv[0], commArgv[1], NULL);
-//         }
-//         else
-//         {
-//             wait(NULL);
-//         }
-//     }
-//     else if (strcmp(commArgv[0], "cd") == 0)
-//     {
-//         /* if no arguments go to home directory */
-//         // if (ArgvNum == 0)
-//         // {
-//         //     printf("No arguments given, going to home directory\n");
-//         //     char *homePath = getenv("HOME");
-//         //     for (int i = 0; i < strlen(homePath); i++)
-//         //     {
-//         //         commArgv[1][i] = homePath[i];
-//         //     }
-//         // }
-
-//         /* try to change directory */
-//         int result = chdir(commArgv[1]);
-
-//         /* error handling */
-//         if (result == -1)
-//         {
-//             perror("Error in cd: wrong argument given");
-//         }
-//         else
-//         {
-//             printf("Changed directory to %s\n", commArgv[1]);
-//         }
-//     }
-//     else
-//     {
-//         printf("Unknown command: %s\n", commArgv[0]);
-//     }
-
-//     free(path);
-//     free(command);
-// }
-//     return 0;
-// }
 
 void getCurrentWorkingDirectory(char *path, size_t maxSize)
 {
-    char *getcwd(char *buf, size_t size);
-
     if (getcwd(path, maxSize) == NULL)
     {
-        perror("Error in getCurrentWorkingDirectory()");
+        perror("Error in getCurrentWorkingDirectory(): getcwd() failure\n");
     }
 }
-
-void getInput(char *command, size_t maxSize)
-{
-    fgets(command, maxSize, stdin);
-}
-
-void splitCommand(char *command, char **commArgv)
-{
-    char *token;
-    int i = 0;
-
-    token = strtok(command, " ");
-    while (token != NULL)
-    {
-        commArgv[i++] = token;
-        // printf("%s\n", token);
-        token = strtok(NULL, " ");
-    }
-}
-// int commCh = 0, ArgvNum = 0, argCh = 0;
-
-// while (commCh != '\n')
-// {
-//     /* terminate if user separated arguments with more than one space*/
-//     if (command[commCh] == ' ' && command[commCh + 1] == ' ')
-//     {
-//         printf("Error: Too many spaces separating arguments\n");
-//         exit(1);
-//     }
-
-//     /* split input by space into array of arguments*/
-//     if (command[commCh] == ' ')
-//     {
-//         commArgv[ArgvNum][argCh] = '\0';
-//         ArgvNum++;
-//         argCh = 0;
-//     }
-//     else
-//     {
-//         commArgv[ArgvNum][argCh] = command[commCh];
-//         argCh++;
-//     }
-
-//     commCh++;
-// }
 
 void showOff()
 {
@@ -238,35 +178,53 @@ void showOff()
     printf("\n");
 }
 
-void getCommandArguments(char *command, char **commArgv) {
-    char *token;
+void getCommandArguments(char **commArguments, int *argumentsNum)
+{
+    char *command = malloc(COMMAND_MAX_LENGTH);
+
+    /* get input from user and remove new line char */
+    fgets(command, COMMAND_MAX_LENGTH, stdin);
+    size_t lastCharIndex = strcspn(command, "\n");
+    command[lastCharIndex] = 0;
+
+    /* split command int arguments */
+    char *token = malloc(MAX_ARG_LEN);
     int i = 0;
 
     token = strtok(command, " ");
-    while (token != NULL) {
+    while (token != NULL)
+    {
         /* check if argument length is lower than allowed */
         size_t tokenLen = strlen(token);
-        if (tokenLen > MAX_ARG_LEN) {
-            printf("Error: the given argument is too long");
+        if (tokenLen > MAX_ARG_LEN)
+        {
+            printf("Error: the given argument is too long\n");
             return;
         }
 
-        commArgv[i] = (char *)malloc(strlen(token) + 1);
-        strcpy(commArgv[i], token);
+        commArguments[i] = (char *)malloc(strlen(token) + 1);
+        strcpy(commArguments[i], token);
         token = strtok(NULL, " ");
         i++;
     }
-    commArgv[i] = NULL;
+
+    *argumentsNum = i;
+    commArguments[i] = NULL;
+
+    /* free memory*/
+    free(command);
 }
 
-void freeCommandArguments(char **commArgv) {
+void freeCommandArguments(char **commArguments)
+{
     for (int j = 0; j < MAX_ARGS; j++)
     {
-        if (commArgv[j] == NULL)
+        if (commArguments[j] == NULL)
         {
             break;
         }
-        free(commArgv[j]);
-        commArgv[j] = NULL;
+
+        free(commArguments[j]);
+        commArguments[j] = NULL;
     }
 }
