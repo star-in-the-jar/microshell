@@ -14,6 +14,7 @@
 #define MAX_ARG_LEN 256
 
 void showOff();
+void displayInfo();
 void getCurrentWorkingDirectory(char *path, size_t maxSize);
 void getCommandArguments(char **commArguments, int *argumentsNum);
 void freeCommandArguments(char **commArguments);
@@ -26,7 +27,7 @@ int main()
     int argumentsNum = 0;
 
     /* welcome message */
-    // showOff();
+    showOff();
 
     while (1)
     {
@@ -51,7 +52,10 @@ int main()
         // }
 
         /* execute command based on the first argument */
-        if (strcmp(commArguments[0], "cd") == 0)
+        if (commArguments[0] == NULL)
+        {
+            continue;
+        } else if (strcmp(commArguments[0], "cd") == 0)
         {
             /* if '~' or no arguments set first argument to $HOME */
             if (commArguments[1] == NULL || strcmp(commArguments[1], "~") == 0)
@@ -74,7 +78,8 @@ int main()
             }
 
             /* update $OLDPWD */
-            if (setenv("OLDPWD", path, 1) != 0) {
+            if (setenv("OLDPWD", path, 1) != 0)
+            {
                 printf("Error in main(): setenv() failure\n");
             }
         }
@@ -86,9 +91,15 @@ int main()
         {
             exit(0);
         }
+        else if (strcmp(commArguments[0], "help") == 0)
+        {
+            showOff();
+            displayInfo();
+        }
         else
         {
             /* fork to run execvp */
+            /* e.g. ls */
             pid_t forkId = fork();
 
             if (forkId == -1)
@@ -97,7 +108,10 @@ int main()
             }
             else if (forkId == 0)
             {
-                execvp(commArguments[0], commArguments);
+                if(execvp(commArguments[0], commArguments) == -1)
+                {
+                    printf("Error in main(): exec* error\n");
+                }
             }
             else
             {
@@ -118,6 +132,58 @@ void getCurrentWorkingDirectory(char *path, size_t maxSize)
     if (getcwd(path, maxSize) == NULL)
     {
         perror("Error in getCurrentWorkingDirectory(): getcwd() failure\n");
+    }
+}
+
+
+void getCommandArguments(char **commArguments, int *argumentsNum)
+{
+    char *command = malloc(COMMAND_MAX_LENGTH);
+
+    /* get input from user and remove new line char */
+    fgets(command, COMMAND_MAX_LENGTH, stdin);
+    size_t lastCharIndex = strcspn(command, "\n");
+    command[lastCharIndex] = 0;
+
+    /* split command int arguments */
+    char *token = malloc(MAX_ARG_LEN);
+    int i = 0;
+
+    token = strtok(command, " ");
+    while (token != NULL)
+    {
+        /* check if argument length is lower than allowed */
+        size_t tokenLen = strlen(token);
+        if (tokenLen > MAX_ARG_LEN)
+        {
+            printf("Error: the given argument is too long\n");
+            return;
+        }
+
+        commArguments[i] = (char *)malloc(strlen(token) + 1);
+        strcpy(commArguments[i], token);
+        token = strtok(NULL, " ");
+        i++;
+    }
+
+    *argumentsNum = i;
+    commArguments[i] = NULL;
+
+    /* free memory*/
+    free(command);
+}
+
+void freeCommandArguments(char **commArguments)
+{
+    for (int j = 0; j < MAX_ARGS; j++)
+    {
+        if (commArguments[j] == NULL)
+        {
+            break;
+        }
+
+        free(commArguments[j]);
+        commArguments[j] = NULL;
     }
 }
 
@@ -174,57 +240,28 @@ void showOff()
     printf("\n");
     printf("\n");
     printf("\n");
-    printf("\n");
-    printf("\n");
 }
 
-void getCommandArguments(char **commArguments, int *argumentsNum)
+void displayInfo()
 {
-    char *command = malloc(COMMAND_MAX_LENGTH);
-
-    /* get input from user and remove new line char */
-    fgets(command, COMMAND_MAX_LENGTH, stdin);
-    size_t lastCharIndex = strcspn(command, "\n");
-    command[lastCharIndex] = 0;
-
-    /* split command int arguments */
-    char *token = malloc(MAX_ARG_LEN);
-    int i = 0;
-
-    token = strtok(command, " ");
-    while (token != NULL)
-    {
-        /* check if argument length is lower than allowed */
-        size_t tokenLen = strlen(token);
-        if (tokenLen > MAX_ARG_LEN)
-        {
-            printf("Error: the given argument is too long\n");
-            return;
-        }
-
-        commArguments[i] = (char *)malloc(strlen(token) + 1);
-        strcpy(commArguments[i], token);
-        token = strtok(NULL, " ");
-        i++;
-    }
-
-    *argumentsNum = i;
-    commArguments[i] = NULL;
-
-    /* free memory*/
-    free(command);
-}
-
-void freeCommandArguments(char **commArguments)
-{
-    for (int j = 0; j < MAX_ARGS; j++)
-    {
-        if (commArguments[j] == NULL)
-        {
-            break;
-        }
-
-        free(commArguments[j]);
-        commArguments[j] = NULL;
-    }
+    printf("Dostępne komendy:\n");
+    printf("    help    --> wyświetlenie pomocy\n");
+    printf("\n");
+    printf("    exit    --> zamknięcie programu\n");
+    printf("\n");
+    printf("    cd      --> zmiana katalogu roboczego\n");
+    printf("        * cd            --> przejście do katalogu domowego\n");
+    printf("        * cd ~          --> przejście do katalogu domowego\n");
+    printf("        * cd -          --> przejście do poprzedniego katalogu\n");
+    printf("        * cd /path      --> przejście do katalogu o ścieżce absolutnej\n");
+    printf("        * cd path       --> przejście do katalogu o ścieżce relatywnej\n");
+    printf("\n");
+    printf("    ls      --> wyświetlenie zawartości folderu\n");
+    printf("        * ls -l         --> przejście do katalogu domowego\n");
+    printf("        * ls -a         --> przejście do katalogu domowego\n");
+    printf("        * ls -h         --> przejście do katalogu domowego\n");
+    printf("        * ls -i         --> przejście do katalogu domowego\n");
+    printf("        * ls --color    --> przejście do katalogu domowego\n");
+    printf("\n");
+    printf("Autorem programu Microshell jest Stanisław Jarocki.\n");
 }
