@@ -18,6 +18,7 @@ void displayInfo();
 void getCurrentWorkingDirectory(char *path, size_t maxSize);
 void getCommandArguments(char **commArguments, int *argumentsNum);
 void freeCommandArguments(char **commArguments);
+void changeDirectory(char **commArguments, char *oldPath);
 
 /* print text */
 void colorReset();
@@ -54,37 +55,7 @@ int main()
         }
         else if (strcmp(commArguments[0], "cd") == 0)
         {
-            /* if '~' or no arguments set first argument to $HOME */
-            if (commArguments[1] == NULL || strcmp(commArguments[1], "~") == 0)
-            {
-                commArguments[1] = getenv("HOME");
-            }
-            /* if '-' set first argument to $OLDPWD */
-            else if (strcmp(commArguments[1], "-") == 0)
-            {
-                if ((commArguments[1] = getenv("OLDPWD")) == NULL)
-                {
-                    colorError();
-                    printf("Error in main(): env OLDPWD is not set\n");
-                    colorReset();
-                }
-            }
-
-            /* change directory */
-            if (chdir(commArguments[1]) != 0)
-            {
-                colorError();
-                printf("Error in main(): chdir() failure\n");
-                colorReset();
-            }
-
-            /* update $OLDPWD */
-            if (setenv("OLDPWD", path, 1) != 0)
-            {
-                colorError();
-                printf("Error in main(): setenv() failure\n");
-                colorReset();
-            }
+            changeDirectory(commArguments, path);
         }
         else if (strcmp(commArguments[0], "pwd") == 0)
         {
@@ -182,6 +153,43 @@ void getCommandArguments(char **commArguments, int *argumentsNum)
     free(command);
 }
 
+void changeDirectory(char **commArguments, char *oldPath)
+{
+    /* if '~' or no arguments set first argument to $HOME */
+    if (commArguments[1] == NULL || strcmp(commArguments[1], "~") == 0)
+    {
+        commArguments[1] = getenv("HOME");
+    }
+    /* if '-' set first argument to $OLDPWD */
+    else if (strcmp(commArguments[1], "-") == 0)
+    {
+        if ((commArguments[1] = getenv("OLDPWD")) == NULL)
+        {
+            colorError();
+            printf("Error in main(): env OLDPWD is not set\n");
+            colorReset();
+        }
+    }
+
+    /* change directory */
+    if (chdir(commArguments[1]) != 0)
+    {
+        colorError();
+        printf("Error in main(): chdir() failure\n");
+        colorReset();
+    }
+
+    /* update $OLDPWD */
+    if (setenv("OLDPWD", oldPath, 1) != 0)
+    {
+        colorError();
+        printf("Error in main(): setenv() failure\n");
+        colorReset();
+    }
+}
+
+/* functions for freeing memory */
+
 void freeCommandArguments(char **commArguments)
 {
     for (int j = 0; j < MAX_ARGS; j++)
@@ -215,7 +223,7 @@ void colorWarning()
 
 void colorHighlight()
 {
-    printf("\033[0;35m");
+    printf("\033[0;36m");
 }
 
 void colorReset()
