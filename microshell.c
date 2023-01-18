@@ -7,25 +7,28 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-/* for command input */
 #define PATH_MAX_LENGTH 1024
 #define COMMAND_MAX_LENGTH 1024
 #define MAX_ARGS 128
 #define MAX_ARG_LEN 256
 
-void showOff();
-void displayInfo();
-void getCurrentWorkingDirectory(char *path, size_t maxSize);
+/* functions */
+void getCurrentDirectory(char *path, size_t maxSize);
 void getCommandArguments(char **commArguments, int *argumentsNum);
 void freeCommandArguments(char **commArguments);
 void changeDirectory(char **commArguments, char *oldPath);
+void forkExecvp(char **commArguments);
 
-/* print text */
+/* change color */
 void colorReset();
 void colorHighlight();
 void colorSuccess();
 void colorWarning();
 void colorError();
+
+/* print text */
+void showOff();
+void displayInfo();
 
 int main()
 {
@@ -40,7 +43,8 @@ int main()
     while (1)
     {
         /* display current path */
-        getCurrentWorkingDirectory(path, PATH_MAX_LENGTH);
+        getCurrentDirectory(path, PATH_MAX_LENGTH);
+
         colorHighlight();
         printf("MICRO [%s] $ ", path);
         colorReset();
@@ -72,28 +76,7 @@ int main()
         }
         else
         {
-            /* fork to run execvp */
-            pid_t forkId = fork();
-
-            if (forkId == -1)
-            {
-                colorError();
-                printf("Error in main(): Fork failed\n");
-                colorReset();
-            }
-            else if (forkId == 0)
-            {
-                if (execvp(commArguments[0], commArguments) == -1)
-                {
-                    colorError();
-                    printf("Error in main(): exec* error\n");
-                    colorReset();
-                }
-            }
-            else
-            {
-                wait(NULL);
-            }
+            forkExecvp(commArguments);
         }
     }
 
@@ -104,12 +87,12 @@ int main()
     return 0;
 }
 
-void getCurrentWorkingDirectory(char *path, size_t maxSize)
+void getCurrentDirectory(char *path, size_t maxSize)
 {
     if (getcwd(path, maxSize) == NULL)
     {
         colorError();
-        perror("Error in getCurrentWorkingDirectory(): getcwd() failure\n");
+        perror("Error in getCurrentDirectory(): getcwd() failure\n");
         colorReset();
     }
 }
@@ -185,6 +168,31 @@ void changeDirectory(char **commArguments, char *oldPath)
         colorError();
         printf("Error in main(): setenv() failure\n");
         colorReset();
+    }
+}
+
+void forkExecvp(char **commArguments) {
+    /* fork to run execvp */
+    pid_t forkId = fork();
+
+    if (forkId == -1)
+    {
+        colorError();
+        printf("Error in main(): Fork failed\n");
+        colorReset();
+    }
+    else if (forkId == 0)
+    {
+        if (execvp(commArguments[0], commArguments) == -1)
+        {
+            colorError();
+            printf("Error in main(): exec* error\n");
+            colorReset();
+        }
+    }
+    else
+    {
+        wait(NULL);
     }
 }
 
