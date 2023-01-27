@@ -6,6 +6,7 @@
 #include <malloc.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #define PATH_MAX_LENGTH 1024
 #define COMMAND_MAX_LENGTH 1024
@@ -18,6 +19,9 @@ void getCommandArguments(char **commArguments, int *argumentsNum);
 void freeCommandArguments(char **commArguments);
 void changeDirectory(char **commArguments, char *oldPath);
 void forkExecvp(char **commArguments);
+
+/* CTRL + C handling */
+void handleAbort(int);
 
 /* change color */
 void colorReset();
@@ -39,6 +43,9 @@ int main()
 
     /* welcome message */
     showOff();
+
+    /* chandle CTRL + C */
+    signal(SIGINT, handleAbort);
 
     while (1)
     {
@@ -87,6 +94,13 @@ int main()
     return 0;
 }
 
+/* handle CTRL + C */
+void  handleAbort(int enteredSignal)
+{
+    signal(enteredSignal, SIG_IGN);
+    signal(SIGINT, handleAbort);
+}
+
 void getCurrentDirectory(char *path, size_t maxSize)
 {
     if (getcwd(path, maxSize) == NULL)
@@ -117,8 +131,8 @@ void getCommandArguments(char **commArguments, int *argumentsNum)
         size_t tokenLen = strlen(token);
         if (tokenLen > MAX_ARG_LEN)
         {
-            colorError();
-            printf("Error: the given argument is too long\n");
+            colorWarning();
+            printf("Error in getCommandArguments(): the given argument is too long\n");
             colorReset();
             return;
         }
@@ -134,6 +148,7 @@ void getCommandArguments(char **commArguments, int *argumentsNum)
 
     /* free memory*/
     free(command);
+    free(token);
 }
 
 void changeDirectory(char **commArguments, char *oldPath)
@@ -148,8 +163,8 @@ void changeDirectory(char **commArguments, char *oldPath)
     {
         if ((commArguments[1] = getenv("OLDPWD")) == NULL)
         {
-            colorError();
-            printf("Error in main(): env OLDPWD is not set\n");
+            colorWarning();
+            printf("Error in changeDirectory(): env OLDPWD is not set\n");
             colorReset();
         }
     }
@@ -157,16 +172,16 @@ void changeDirectory(char **commArguments, char *oldPath)
     /* change directory */
     if (chdir(commArguments[1]) != 0)
     {
-        colorError();
-        printf("Error in main(): chdir() failure\n");
+        colorWarning();
+        printf("Error in changeDirectory(): chdir() failure\n");
         colorReset();
     }
 
     /* update $OLDPWD */
     if (setenv("OLDPWD", oldPath, 1) != 0)
     {
-        colorError();
-        printf("Error in main(): setenv() failure\n");
+        colorWarning();
+        printf("Error in changeDirectory(): setenv() failure\n");
         colorReset();
     }
 }
@@ -178,7 +193,7 @@ void forkExecvp(char **commArguments) {
     if (forkId == -1)
     {
         colorError();
-        printf("Error in main(): Fork failed\n");
+        printf("Error in forkExecvp(): Fork failed\n");
         colorReset();
     }
     else if (forkId == 0)
@@ -186,8 +201,9 @@ void forkExecvp(char **commArguments) {
         if (execvp(commArguments[0], commArguments) == -1)
         {
             colorError();
-            printf("Error in main(): exec* error\n");
+            printf("Error in forkExecvp(): exec* error\n");
             colorReset();
+            exit(1);
         }
     }
     else
@@ -217,11 +233,6 @@ void freeCommandArguments(char **commArguments)
 void colorError()
 {
     printf("\033[0;31m");
-}
-
-void colorSuccess()
-{
-    printf("\033[0;32m");
 }
 
 void colorWarning()
@@ -300,23 +311,28 @@ void displayInfo()
 {
     printf("Dostępne komendy:\n");
     printf("\n");
+
+    colorHighlight();
     printf("help  ==> wyświetlenie pomocy\n");
+    colorReset();
+
     printf("\n");
+
+    colorHighlight();
     printf("exit  ==> zamknięcie programu\n");
+    colorReset();
+
     printf("\n");
+
+    colorHighlight();
     printf("cd  ==> zmiana katalogu roboczego\n");
+    colorReset();
+
     printf("    cd            --> przejście do katalogu domowego\n");
     printf("    cd ~          --> przejście do katalogu domowego\n");
     printf("    cd -          --> przejście do poprzedniego katalogu\n");
     printf("    cd /path      --> przejście do katalogu o ścieżce absolutnej\n");
     printf("    cd path       --> przejście do katalogu o ścieżce relatywnej\n");
-    printf("\n");
-    printf("ls  ==> wyświetlenie zawartości folderu\n");
-    printf("    ls -l         --> przejście do katalogu domowego\n");
-    printf("    ls -a         --> przejście do katalogu domowego\n");
-    printf("    ls -h         --> przejście do katalogu domowego\n");
-    printf("    ls -i         --> przejście do katalogu domowego\n");
-    printf("    ls --color    --> przejście do katalogu domowego\n");
     printf("\n");
     printf("Autorem programu Microshell jest Stanisław Jarocki.\n");
 }
